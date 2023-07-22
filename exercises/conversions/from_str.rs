@@ -9,6 +9,18 @@
 use std::num::ParseIntError;
 use std::str::FromStr;
 
+trait Concat {
+    fn concat(self: &Self, char: char) -> String;
+}
+
+impl Concat for String {
+    fn concat(self: &Self, char: char) -> String {
+        let mut new_string = self.clone();
+        new_string.push(char);
+        new_string
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct Person {
     name: String,
@@ -28,8 +40,6 @@ enum ParsePersonError {
     ParseInt(ParseIntError),
 }
 
-// I AM NOT DONE
-
 // Steps:
 // 1. If the length of the provided string is 0, an error should be returned
 // 2. Split the given string on the commas present in it
@@ -43,9 +53,53 @@ enum ParsePersonError {
 // As an aside: `Box<dyn Error>` implements `From<&'_ str>`. This means that if you want to return a
 // string error message, you can do so via just using return `Err("my error message".into())`.
 
+enum ParsingState {
+    Init,
+    Name(String),
+    NameWithPendingAge(String),
+    NameAndAge(String, String),
+}
+
 impl FromStr for Person {
     type Err = ParsePersonError;
     fn from_str(s: &str) -> Result<Person, Self::Err> {
+        s.to_string().chars().fold(Result::Ok(ParsingState::Init), |result, char| {
+            match result {
+                Ok(state) => match state {
+                    ParsingState::Init => match char {
+                        'a'..='z' | 'A'..='Z' => Result::Ok(ParsingState::Name(char.to_string())),
+                        _ => Result::Err(ParsePersonError::NoName),
+                    },
+                    ParsingState::Name(name) => match char {
+                        'a'..='z' | 'A'..='Z' => Result::Ok(ParsingState::Name(name.concat(char))),
+                        _ => Result::Ok(ParsingState::NameWithPendingAge(name)),
+                    },
+                    ParsingState::NameWithPendingAge(name) => Result::Ok(ParsingState::NameAndAge(name, char.to_string())),
+                    ParsingState::NameAndAge(name, age) => match char {
+                        ',' => Result::Err(ParsePersonError::BadLen),
+                        _ => Result::Ok(ParsingState::NameAndAge(name, age.concat(char))),
+                    },
+                },
+                Err(err) => Result::Err(err)
+            }
+        }).and_then(|state| {
+            match state {
+                ParsingState::Init => Result::Err(ParsePersonError::Empty),
+                ParsingState::NameAndAge(name, age) => {
+                    match age.parse::<usize>() {
+                        Ok(age) => Result::Ok(Person { name, age }),
+                        Err(err) => Result::Err(ParsePersonError::ParseInt(err)),
+                    }
+                },
+                ParsingState::NameWithPendingAge(name) => {
+                    match "".to_string().parse::<usize>() {
+                        Ok(age) => Result::Ok(Person { name, age }),
+                        Err(err) => Result::Err(ParsePersonError::ParseInt(err)),
+                    }
+                },
+                _ => Result::Err(ParsePersonError::BadLen)
+            }
+        })
     }
 }
 

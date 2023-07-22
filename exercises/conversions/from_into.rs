@@ -35,10 +35,57 @@ impl Default for Person {
 // If while parsing the age, something goes wrong, then return the default of Person
 // Otherwise, then return an instantiated Person object with the results
 
-// I AM NOT DONE
-
 impl From<&str> for Person {
     fn from(s: &str) -> Person {
+        let input: Vec<&str> = s.split(",").into_iter().collect();
+        if input.len() != 2 { return Person::default() }
+        let input_person: Option<Person> = input.iter().enumerate().fold(Some(Person::default()), |option, (index, value)| {
+            match option {
+                Some(person) => {
+                    match index {
+                        0 => match value {
+                            value if value.len() > 0 => Some(Person { name: value.to_string(), age: person.age.clone() }),
+                            _ => None,
+                        },
+                        1 => match value {
+                            value if value.len() > 0 => match value.parse::<usize>() {
+                                Ok(age) => Some(Person { name: person.name.clone(), age }),
+                                Err(_) => None
+                            },
+                            _ => None
+                        },
+                        _ => None
+                    }
+                }
+                None => None
+            }
+        });
+
+        match input_person {
+            Some(person) => person,
+            None => Person::default()
+        }
+
+        // let input = s.to_string();
+        // let split_input: [&str] = Vec::from(input.split(",").into_iter());
+        // match split_input {
+        //     [] => default_person,
+        //     [name] => Person { name, age: default_person.age.clone() },
+        //     [name, age] if name == "" => Person { name: default_person.name.clone(), age },
+        //     _ => {
+        //         let (name, age): (String, usize) = input.split(",").into_iter().enumerate().fold((default_person.name, default_person.age), |tuple, (index, value)| {
+        //             match index {
+        //                 0 => (value.to_string(), tuple.1),
+        //                 1 => match value.parse::<usize>() {
+        //                     Ok(age) => (tuple.0, age),
+        //                     Err(_) => tuple
+        //                 }
+        //                 _ => tuple
+        //             }
+        //         });
+        //         Person { name, age }
+        //     }
+        // }
     }
 }
 
@@ -54,6 +101,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_default() {
         // Test that the default person is 30 year old John
@@ -61,6 +109,7 @@ mod tests {
         assert_eq!(dp.name, "John");
         assert_eq!(dp.age, 30);
     }
+
     #[test]
     fn test_bad_convert() {
         // Test that John is returned when bad string is provided
@@ -68,6 +117,7 @@ mod tests {
         assert_eq!(p.name, "John");
         assert_eq!(p.age, 30);
     }
+
     #[test]
     fn test_good_convert() {
         // Test that "Mark,20" works
@@ -75,6 +125,7 @@ mod tests {
         assert_eq!(p.name, "Mark");
         assert_eq!(p.age, 20);
     }
+
     #[test]
     fn test_bad_age() {
         // Test that "Mark,twenty" will return the default person due to an error in parsing age
